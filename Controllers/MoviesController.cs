@@ -1,8 +1,10 @@
 ﻿using CinemaApi2.Data;
 using CinemaApi2.Models;
+using CinemaApi2.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.IO;
 
 namespace CinemaApi2.Controllers
 {
@@ -11,39 +13,80 @@ namespace CinemaApi2.Controllers
     public class MoviesController : ControllerBase
     {
 
-        public ApplicationDbContext _db { get; set; }
+        public  ApplicationDbContext _db { get; set; }
+        private IWebHostEnvironment _env { get; set; }
 
-
-        public MoviesController(ApplicationDbContext db)
+        public MoviesController(ApplicationDbContext db, IWebHostEnvironment env)
         {
             _db = db;
+            _env = env;
         }
 
 
         [HttpPost("AddMovie")]
-        public async Task<IActionResult> AddMovies([FromForm]MoviesModel NewMovieObject)
+        public async Task<IActionResult> AddMovies([FromForm] MoviesViewModel NewMovieObject)
         {
             try
             {
-                var CheckIfMovieExistInDataBase = await _db.MoviesTable.FirstOrDefaultAsync(a => a.MovieName == NewMovieObject.MovieName);
+                var CheckIfMovieExists = await _db.MoviesTable.FirstOrDefaultAsync(a => a.MovieName == NewMovieObject.MovieName);
 
-                if (CheckIfMovieExistInDataBase is null)
+                if (CheckIfMovieExists is null)
                 {
-                    await _db.MoviesTable.AddAsync(NewMovieObject);
+                    var DbModel = new MoviesModel();
+
+                    DbModel.MovieName = NewMovieObject.MovieName;
+                    DbModel.MovieCategory = NewMovieObject.MovieCategory;
+                    DbModel.MovieVideoLink = NewMovieObject.MovieVideoLink;
+                    DbModel.MovieRating = NewMovieObject.MovieRating;
+                    DbModel.DateOfRelease = NewMovieObject.DateOfRelease;
+                    DbModel.DirectorName = NewMovieObject.DirectorName;
+                    DbModel.MainStarName = NewMovieObject.MainStarName;
+                    DbModel.MovieThumbNail = await InputImage(NewMovieObject.ImageFile);
+
+                    await _db.MoviesTable.AddAsync(DbModel);
                     await _db.SaveChangesAsync();
-                    return Ok("The Movie Has Been Added Successfully to the Database");
+                    return Ok("The Movie Had Been Added To The System");
+
                 }
                 else
                 {
-                    return BadRequest($"The Movie : {NewMovieObject.MovieName} is already regestered in the database");
+                    return Ok("The Movie Already Exists in the database");
                 }
-
             }
             catch (Exception e)
             {
                 return BadRequest(e.Message);
             }
+
+
         }
+
+
+        [NonAction]
+        private async Task<string> InputImage(IFormFile MovieImage)
+        {
+            var FileName = MovieImage.FileName;
+            var FullName = Guid.NewGuid().ToString() + FileName ;
+
+            var FolderDirectory = $"{_env.WebRootPath}//Images";
+            var FullPath = Path.Combine(FolderDirectory , FullName);
+
+            var memorystream = new MemoryStream();
+            await MovieImage.OpenReadStream().CopyToAsync(memorystream);
+
+            await using (var fs = new FileStream(FullPath, FileMode.Create, FileAccess.Write))
+            {
+                memorystream.WriteTo(fs);
+            }
+
+            return $"https://localhost:7110/Images/{FullName}";
+        }
+
+
+
+
+
+
 
 
         [HttpPut("EditMovie")]                                     // Id : 10
@@ -144,7 +187,6 @@ namespace CinemaApi2.Controllers
 
 
 
-       
 
 
 
