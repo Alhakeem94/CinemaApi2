@@ -24,7 +24,7 @@ namespace CinemaApi2.Controllers
 
 
         [HttpPost("AddMovie")]
-        public async Task<IActionResult> AddMovies([FromForm] MoviesViewModel NewMovieObject)
+        public async Task<IActionResult> AddMovies([FromForm]MoviesViewModel NewMovieObject)
         {
             try
             {
